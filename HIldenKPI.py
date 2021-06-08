@@ -1,5 +1,6 @@
 import xlwings as xw
 import pandas as pd
+import numpy as np
 from datetime import datetime
 import calendar
 
@@ -52,6 +53,8 @@ class Selected_data:
 
 
 def automated_report(df):
+
+    # TODO: Change from the Excel file to the Datsa BAse to get the data as they are not performing the regular update
     week_number = int(input('Semana a calcular:\t'))
     year = int(input('Year:\t'))
 
@@ -59,8 +62,14 @@ def automated_report(df):
     # print(df.dtypes)
     # print(df['Finished Kits '])
 
-    # Ensuring that the Re|t Data ('End MFG date') is a datetime type
+    # Ensuring that the Read Data ('End MFG date') is a datetime type
     df['End MFG date'] = pd.to_datetime(df['End MFG date'], format='%d/%m/%Y')
+
+    # Removing fails in the % Scrap column
+    for index, entry in enumerate(df['% Scrap']):
+        if isinstance(entry, str):
+            print('Encontrado[{}]: {} .=> Reemplazando por nan'.format(index, entry))
+            df.replace({f'{entry}': np.nan}, inplace=True)
 
     # Get the dates | the week beginning and end
     monday, sunday = get_dates_from_week_number(year, week_number)
@@ -203,7 +212,7 @@ def automated_report(df):
 
     week_lots_released = week_lots.loc[(week_lots['FINAL\nSTATUS'] == 'RELEASED')]
     week_lots_pending = week_lots.loc[
-        (week_lots['FINAL\nSTATUS'] == 'ON HOLD')| (week_lots['FINAL\nSTATUS'] == 'IN PROCESS')]
+        (week_lots['FINAL\nSTATUS'] == 'ON HOLD') | (week_lots['FINAL\nSTATUS'] == 'IN PROCESS')]
     week_lots_rejected = week_lots.loc[(week_lots['FINAL\nSTATUS'] == 'REJECTED')]
 
     released_cartridges = int(week_lots_released['Finished cartridges'].sum())
@@ -260,3 +269,36 @@ def get_dates_from_year(year):
     start_year = datetime(year, 1, 1)
     end_year = datetime(year, 12, 31)
     return start_year, end_year
+
+
+def delete_information(df, delete_rows=None, delete_columns=None):
+    """
+    Deletes from the DataFrame any non necessary columns or rows, selected by the user
+    :param df: [DataFrame] raw Data Frame
+    :param delete_rows: Number of the first rows to delete. If 'NA' does not apply
+    F.Ex: delete_rows = 9 => Deletes in the DataFrame the rows: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    Note: in the Excel file rows start from 1, so are the same way codified in the DataFrame (not start from 0)
+    :param delete_columns: Number of first columns to delete. If 'NA' does not apply
+    F.Ex: delete_columns = 1 => Deletes in the Data Frame only the first column
+    :return df1: [DataFrame] DataFrame with the selected information deleted
+    """
+
+    # Check if any row or column must be deleted
+    if delete_columns is not None and delete_rows is None:
+        # Delete the indicated columns
+        df1 = df.drop(df.columns[:delete_columns], axis=1)
+
+    elif delete_columns is None and delete_rows is not None:
+        # Delete the indicated rows
+        df1 = pd.DataFrame(df[delete_rows:].values)
+
+    elif delete_columns is not None and delete_rows is not None:
+        # Delete the columns and then the rows
+        tdf = df.drop(df.columns[delete_columns], axis=1)
+        df1 = pd.DataFrame(tdf[delete_rows:].values)
+
+    # If all == 'NA' do not delete anything
+    else:
+        df1 = df
+
+    return df1
