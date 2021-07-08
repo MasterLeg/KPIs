@@ -1,5 +1,4 @@
 import pyodbc
-import logging
 from tabulate import tabulate
 from itertools import chain
 from datetime import datetime
@@ -8,7 +7,6 @@ import pandas as pd
 
 
 class SQLServer:
-
     # Columns in the SQL server
     """
     sn => Serial number
@@ -47,7 +45,7 @@ class SQLServer:
     in_qc
     lot_final_status_qc
     panel_qc
-    lot_date =>
+    lot_date => Date in which the lot is released
     line
     """
 
@@ -60,12 +58,11 @@ class SQLServer:
                                                                                     username,
                                                                                     password)
 
-        logging.warning('Estableciendo conexión: ' + setup_connection)
+        print('Estableciendo conexión: ' + setup_connection)
 
         self.connection = pyodbc.connect(setup_connection)
         self.cursor = self.connection.cursor()
-
-        logging.warning('Establecida la conexión')
+        print('Establecida la conexión')
 
         self.columns_summary()
 
@@ -105,7 +102,7 @@ class SQLServer:
 
     def cartridges_split_by_line_ordered(self):
         """
-        Information about: Line, Lot, Stsatus and Count.
+        Information about: Line, Lot, Status and Count.
         It tells how many cartridges are in each status for each lot, ordered by line and lot number
         """
 
@@ -116,7 +113,7 @@ class SQLServer:
             HAVING line IN ('{1}', '{2}')
             ORDER BY CASE line WHEN '{1}' Then 0 WHEN '{2}' Then 1 ELSE 2 END ASC, LOT_lsn, status_txt
             """
-        ).format(self.table, self.lines[0], self.lines[1])
+                 ).format(self.table, self.lines[0], self.lines[1])
 
         print(tabulate(self.execute_query(query), headers=['Line', 'Lot', 'Status', 'Count']))
 
@@ -134,6 +131,29 @@ class SQLServer:
 
         print(tabulate(self.execute_query(query2), headers=['LOT', 'STARTED', 'LINE', 'LOT_DATE']))
 
+    def get_information_report_lots(self): # -> List[Tuple[int, datetime, str, str, int, int, str]]:
+        """
+        Execute a query to get data grouped by Lot number. the information returned are:
+        List[Tuple[Lot number, Reporting Date, Production Date, Release date, Started, Finished, Lot Status]]
+        :return: 
+        """
+
+        query = ("""
+            SELECT
+                LOT_lsn,
+                max(date_lp) as reporting_date,
+                max(lot_date) as prod_date,
+                max(QA_Release) AS release_date,
+                SUM(CASE WHEN status_txt != 'NOT USED' THEN 1 ELSE 0 END) AS Started,
+                SUM(CASE WHEN status_txt IN ('FINISHED', 'PACKAGED') THEN 1 ELSE 0 END) AS Finished,
+                lot_final_status_qc
+            FROM {}
+            WHERE line IN ('SSL2', 'SSL4') AND is_production_lot = 1
+            GROUP BY LOT_lsn, lot_final_status_qc
+            ORDER BY LOT_lsn DESC;
+        """).format(self.table)
+
+        return self.execute_query(query)
 
     def tabulate_data(self):
 

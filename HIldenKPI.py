@@ -1,60 +1,76 @@
-import xlwings as xw
 import pandas as pd
 import numpy as np
 from datetime import datetime
 import calendar
+from SQLServer import SQLServer
 
 
-class Cell:
-    """  Class: Cells
-         Attributes:
-         - row: [str] Letter that represents the cell vertical location in Excel
-         - column: [str] Number that represents the cell |izontal location in Excel
-         - value: [str] Value contained in the cell
-    """
-
-    # Construc|
+class Hilden_Dataframe:
     def __init__(self):
-        app = xw.apps.active
-        location = app.selection
-        # Location: "$A$1"
+        server = SQLServer(server='prd-dl2-weu-rg.database.windows.net',
+                           database='prd-dlsqlaccesslayer-weu-sqldb',
+                           username='AccessManufacturingReportingReader',
+                           password='KASKiajdjoqe^523jk',
+                           table='manufacturing_reporting.qiastatdx_master'
+                           )
 
-        # Get location value
-        self.value = location.value
+        tabulated_information_about_lots = server.get_information_report_lots()
 
-        # Remove first character (first "$")
-        location = location.address[1:]
+        # Open the downloaded Hilden Excel copy to gather the FTR status
+        print('Opening the file "48 Documentation\\3.KPI\\Hilden". Ensure the updated Excel has been downloaded')
 
-        # Split to get the attributes row and column
-        # "A$1" => split("$") => ['A', '1']
-        (self.column, self.row) = location.split('$')
+        df_downloaded_Hilden = pd.read_excel('J:\\48 Documentation\\3.KPI\\Hilden\\HIL_summary 2020.xlsx',
+                                             sheet_name='Cartridges summary',
+                                             engine='openpyxl',
+                                             header=5)
+        print('OK => Data loaded')
 
+        # If appears 'FTR' change to 1 and if not, save as 0
+        df_downloaded_Hilden['FTR'].replace({'FTR': 1, np.nan: 0}, inplace=True)
 
-class Selected_data:
+        # Create a lot number and FTR / Released kits dictionary
+        ftr = dict(zip(df_downloaded_Hilden['SAP Lot nº'].tolist(),
+                       tuple(zip(df_downloaded_Hilden['FTR'].tolist(),
+                                 df_downloaded_Hilden['Released/Blocked kits'].tolist()))))
 
-    def __init__(self):
-        app = xw.apps.active
+        lots_added_ftr = []
 
-        # Selecting manually the info from the opened file (recommend going from B2 to Z:)
-        selection = app.selection
-        # print(selection)
+        # Match and add the lot FTR
+        for lot_whole_raw in tabulated_information_about_lots:
+            lot_number = lot_whole_raw[0]
 
-        # Saving the values
-        values = selection.value
+            try:
+                lots_added_ftr += [(*lot_whole_raw, ftr[lot_number][0], ftr[lot_number][1])]
+            except KeyError:
+                lots_added_ftr += [(*lot_whole_raw, 0, 0)]
 
-        # Convert to a Data Frame
-        df = pd.DataFrame(values)
-        # print(df.head(10))
+        print('Lots added FTR:\n', np.array(lots_added_ftr))
 
-        # Assigning the column the correct name
-        df.columns = df.loc[1]
-        # print(df.columns)
-        self.df = df
+        # Create the Data Frame
+        hilden_df = pd.DataFrame(np.array(lots_added_ftr),
+                                 columns=[
+                                     'Lot number',
+                                     'End MFG date',
+                                     'Manufacturing Date',
+                                     'Release/block date',
+                                     'Started Cartridges',
+                                     'Finished cartridges',
+                                     'FINAL\nSTATUS',
+                                     'FTR',
+                                     'Released/Blocked kits'
+                                 ])
+
+        print('Created the DatFrame matched with the FTR field')
+
+        # Save the Data Frame as an Excel file to apply the other steps
+        hilden_df.to_excel('J:\\48 Documentation\\3.KPI\\Hilden\\output.xlsx',
+                           sheet_name='Sheet1')
+
+        print('Saved the Matched DataFrame as an Excel File')
 
 
 def automated_report(df):
-
-    # TODO: Change from the Excel file to the Datsa BAse to get the data as they are not performing the regular update
+    # TODO: Change from the Excel file to the Data Base to get the data as they are not performing the regular update
     week_number = int(input('Semana a calcular:\t'))
     year = int(input('Year:\t'))
 
@@ -64,12 +80,10 @@ def automated_report(df):
 
     # Ensuring that the Read Data ('End MFG date') is a datetime type
     df['End MFG date'] = pd.to_datetime(df['End MFG date'], format='%d/%m/%Y')
+    df['Release/block date'] = pd.to_datetime(df['Release/block date'], format='%Y-%m-%d')
 
-    # Removing fails in the % Scrap column
-    for index, entry in enumerate(df['% Scrap']):
-        if isinstance(entry, str):
-            print('Encontrado[{}]: {} .=> Reemplazando por nan'.format(index, entry))
-            df.replace({f'{entry}': np.nan}, inplace=True)
+    # Calculate the Scrap %
+    df['% Scrap'] = (df['Started Cartridges'] - df['Finished cartridges']) / df['Started Cartridges']
 
     # Get the dates | the week beginning and end
     monday, sunday = get_dates_from_week_number(year, week_number)
@@ -141,7 +155,7 @@ def automated_report(df):
 
     # Select the FTR lots
     lots_FTR = lots_year.loc[(lots_year['FINAL\nSTATUS'] == 'RELEASED') &
-                             (lots_year['FTR'] == 'FTR')]
+                             (lots_year['FTR'] == 1)]
     print('Lots FTR:\t\t\t\t\t\t\t', lots_FTR.groupby('FTR').size().sum())
 
     # Get the total manufactured lots (except 'IN PROCESS')
@@ -153,13 +167,13 @@ def automated_report(df):
     print('\n')
 
     print(f"=========== LOTS HILDEN {month_name} =============")
-    print("Manufactured lots:\t\t\t\t\t", month_lots.groupby('Panel').size().sum())
+    print("Manufactured lots:\t\t\t\t\t", month_lots.groupby('FINAL\nSTATUS').size().sum())
 
     month_lots_released = month_lots.loc[(month_lots['FINAL\nSTATUS'] == 'RELEASED')]
     print("Released lots:\t\t\t\t\t\t", month_lots_released.groupby('FINAL\nSTATUS').size().sum())
 
     month_lots_FTR = month_lots.loc[(month_lots['FINAL\nSTATUS'] == 'RELEASED') &
-                                    (month_lots['FTR'] == 'FTR')]
+                                    (month_lots['FTR'] == 1)]
     print("FTR:\t\t\t\t\t\t\t\t", month_lots_FTR.groupby('FTR').size().sum())
 
     month_lots_rejected = month_lots.loc[(month_lots['FINAL\nSTATUS'] == 'REJECTED')]

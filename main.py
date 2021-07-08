@@ -5,6 +5,8 @@ from AnualScrap import generate_anual_scrap_report
 from HIldenKPI import automated_report
 import pandas as pd
 from KPIS3 import generate_automated_KPIs_2
+from SQLServer import SQLServer
+from HIldenKPI import Hilden_Dataframe
 
 
 if __name__ == '__main__':
@@ -17,7 +19,8 @@ if __name__ == '__main__':
                           '(3) Total Scrap\n'
                           '(4) Year in line Scrap\n'
                           '(5) Hilden KPIS data\n'
-                          '(6) New matched KPIs\n'
+                          '(6) New matched Hilden KPIs\n'
+                          '(7) KPIs SQL Server\n'
                           'Selection:\t')
 
         if selection == '1':
@@ -26,7 +29,7 @@ if __name__ == '__main__':
             sheet = "Sheet1"
 
             # Open Excel sheet as Data Frame
-            df = pd.read_excel(io=file, sheet_name=sheet, engine='opeenpyxl', header=1)
+            df = pd.read_excel(io=file, sheet_name=sheet, engine='openpyxl', header=1)
             # KPIs Report (Excel and Power)
             while True:
                 generate_automated_KPIs(df)
@@ -40,11 +43,13 @@ if __name__ == '__main__':
             # Year in line scrap
             generate_anual_scrap_report()
         elif selection == '5':
+            Hilden_Dataframe()
             print('Opening the file "48 Documentation\\3.KPI\\Hilden". Ensure the updated Excel has been downloaded')
             # Hilden KPIS data scrapper (requires to download the file)
-            df = pd.read_excel('J:\\48 Documentation\\3.KPI\\Hilden\\HIL_summary 2020.xlsx',
-                               sheet_name='Cartridges summary',
-                               header=5)
+            df = pd.read_excel('J:\\48 Documentation\\3.KPI\\Hilden\\output.xlsx',
+                               sheet_name='Sheet1',
+                               engine='openpyxl',
+                               header=0)
             print('OK => Data loaded')
 
             while True:
@@ -52,7 +57,6 @@ if __name__ == '__main__':
                 print('\n')
         elif selection == '6':
 
-            # Hilden KPIS data scrapper (requires to download the file)
             path1 = 'J:\\48 Documentation\\3.KPI\\KPIS_Reports.xlsx'
             print('Opening the file\t' + path1)
             df1 = pd.read_excel(path1,
@@ -84,3 +88,6 @@ if __name__ == '__main__':
             while True:
                 generate_automated_KPIs_2(df)
                 print('\n')
+
+        elif selection == '7':
+            pass

@@ -1,9 +1,11 @@
+from pandas import DataFrame
+
 from KPISdata import get_dates_from_month, get_dates_from_week_number, get_dates_from_year
 import calendar
 from AnualScrap import generate_anual_scrap_report
 
 
-def generate_automated_KPIs_2(df):
+def generate_automated_KPIs_2(df: DataFrame):
     # Checking the data types
     # print(df.dtypes)
 
@@ -12,8 +14,8 @@ def generate_automated_KPIs_2(df):
     # t = df.groupby('Product').size()
     # sum() => Sums up all the selected
 
-    week_number = int(input('Semana a calcular:\t'))
-    year = int(input('Year:\t'))
+    week_number: int = int(input('Semana a calcular:\t'))
+    year: int = int(input('Year:\t'))
 
     # Get the dates for the week beginning and end
     monday, sunday = get_dates_from_week_number(year, week_number)

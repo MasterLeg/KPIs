@@ -1,11 +1,13 @@
 import pandas as pd
 from datetime import datetime
 import calendar
+
+from typing import Tuple
+
 from AnualScrap import generate_anual_scrap_report
 
 
 def generate_automated_KPIs(df):
-
     # Checking the data types
     # print(df.dtypes)
 
@@ -26,7 +28,6 @@ def generate_automated_KPIs(df):
 
     # Select the rows that are in the desired week
     week_lots = df.loc[(df['Reporting Date'] >= monday) & (df['Reporting Date'] <= sunday)]
-
 
     # Select only the commercial lots
     week_lots_commercial = week_lots.loc[(week_lots['Product'] == 'Corona CEIVD') |
@@ -153,7 +154,6 @@ def generate_automated_KPIs(df):
     # Select the rows that are in the desired month
     released_lots_month = df.loc[(df['Release Date'] >= start_month) & (df['Release Date'] <= end_month)]
 
-
     # Select only commercial lots
     released_lots_commercial = released_lots_month.loc[(released_lots_month['Product'] == 'Corona CEIVD') |
                                                        (released_lots_month['Product'] == 'Corona FDA') |
@@ -173,9 +173,12 @@ def generate_automated_KPIs(df):
     print('======= Finished batches =========')
     print(f'========== MONTH {month_name} ============')
     print('Finished cartridges:\t', monthly_manufactured_commercial)
-    print("Released:\t\t\t\t", int(month_lots_released['Finished'].sum()), ' ', round(int(month_lots_released['Finished'].sum())/monthly_manufactured_commercial*100, 1), '%')
-    print("Pending release:\t\t", int(month_lots_pending['Finished'].sum()), ' ', round(int(month_lots_pending['Finished'].sum())/monthly_manufactured_commercial*100, 1), '%')
-    print('Rejected:\t\t\t\t', int(month_lots_rejected['Finished'].sum()), ' ', round(int(month_lots_rejected['Finished'].sum())/monthly_manufactured_commercial*100, 1), '%')
+    print("Released:\t\t\t\t", int(month_lots_released['Finished'].sum()), ' ',
+          round(int(month_lots_released['Finished'].sum()) / monthly_manufactured_commercial * 100, 1), '%')
+    print("Pending release:\t\t", int(month_lots_pending['Finished'].sum()), ' ',
+          round(int(month_lots_pending['Finished'].sum()) / monthly_manufactured_commercial * 100, 1), '%')
+    print('Rejected:\t\t\t\t', int(month_lots_rejected['Finished'].sum()), ' ',
+          round(int(month_lots_rejected['Finished'].sum()) / monthly_manufactured_commercial * 100, 1), '%')
     print('---------------------------------------')
     print('Annual in Line Scrap:')
     print(generate_anual_scrap_report())
@@ -191,52 +194,54 @@ def generate_automated_KPIs(df):
     pending_cartridges = int(week_lots_pending['Finished'].sum())
     rejected_cartridges = int(week_lots_rejected['Finished'].sum())
 
-    print("Released:\t\t\t\t", released_cartridges, ' ', round(released_cartridges/manufactured_commercial*100, 1), '%')
-    print("Pending release:\t\t", pending_cartridges, ' ', round(pending_cartridges/manufactured_commercial*100, 1), '%')
-    print("Rejected:\t\t\t\t", rejected_cartridges, ' ', round(rejected_cartridges/manufactured_commercial*100, 1), '%')
+    print("Released:\t\t\t\t", released_cartridges, ' ', round(released_cartridges / manufactured_commercial * 100, 1),
+          '%')
+    print("Pending release:\t\t", pending_cartridges, ' ', round(pending_cartridges / manufactured_commercial * 100, 1),
+          '%')
+    print("Rejected:\t\t\t\t", rejected_cartridges, ' ', round(rejected_cartridges / manufactured_commercial * 100, 1),
+          '%')
 
     print("=========== Non commercial ============")
-
 
     print(f'{month_name}:\t\t\t\t', month_no_commercial)
     print(f'Week {week_number}:\t\t\t\t', week_no_commercial)
 
     print('======== Released cartridges ===========')
-    print(f'{month_name} 2020\t\t\t', released_kits*6, ' cart BCN')
+    print(f'{month_name} 2020\t\t\t', released_kits * 6, ' cart BCN')
 
     released_lots_week = df.loc[(df['Release Date'] >= monday) & (df['Release Date'] <= sunday)]
 
     # Select only commercial lots
     released_lots_commercial_week = released_lots_week.loc[(released_lots_week['Product'] == 'Corona CEIVD') |
-                                                       (released_lots_week['Product'] == 'Corona FDA') |
-                                                       (released_lots_week['Product'] == 'Corona RUO') |
-                                                       (released_lots_week['Product'] == 'Gastro CEIVD') |
-                                                       (released_lots_week['Product'] == 'Resp CEIVD')]
+                                                           (released_lots_week['Product'] == 'Corona FDA') |
+                                                           (released_lots_week['Product'] == 'Corona RUO') |
+                                                           (released_lots_week['Product'] == 'Gastro CEIVD') |
+                                                           (released_lots_week['Product'] == 'Resp CEIVD')]
 
     # Select the released lots
     lots_released = released_lots_commercial_week.loc[(released_lots_commercial_week['QA Status'] == 1)]
 
     released_kits_week = int(lots_released['Kits'].sum())
 
-    print(f'CALENDAR WEEK {week_number}\t\t', released_kits_week*6, ' cart BCN')
+    print(f'CALENDAR WEEK {week_number}\t\t', released_kits_week * 6, ' cart BCN')
 
 
-
-def get_dates_from_week_number(year, week_number):
+def get_dates_from_week_number(year: int, week_number: int) -> Tuple[datetime, datetime]:
     # Gets the datetime from year => 2020, week_number => 48 and day_number => 1 (monday)
     monday = datetime.fromisocalendar(year, week_number, 1)
     sunday = datetime.fromisocalendar(year, week_number, 7)
     return monday, sunday
 
 
-def get_dates_from_month(month, year):
+def get_dates_from_month(month: int, year: int) -> Tuple[datetime, datetime]:
     # Gets the first and last days from a month
     start_month = datetime(year, month, 1)
     last_day_num = calendar.monthrange(year, month)[1]
     end_month = datetime(year, month, last_day_num)
     return start_month, end_month
 
-def get_dates_from_year(year):
+
+def get_dates_from_year(year: int) -> Tuple[datetime, datetime]:
     # gets the first and last date from the selected year
     start_year = datetime(year, 1, 1)
     end_year = datetime(year, 12, 31)
